@@ -4,31 +4,17 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.NonNull
-import com.nexmo.client.*
-import com.nexmo.client.request_listener.NexmoApiError
-import com.nexmo.client.request_listener.NexmoConnectionListener.ConnectionStatus
-import com.nexmo.client.request_listener.NexmoRequestListener
+import com.vonage.clientcore.core.api.ClientConfigRegion
+import com.vonage.voice.api.ClientConfig
+import com.vonage.voice.api.VoiceCall
+import com.vonage.voice.api.VoiceClient
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private lateinit var client: NexmoClient
-    private var onGoingCall: NexmoCall? = null
-
-    private val callEventListener = object : NexmoCallEventListener {
-        override fun onMemberStatusUpdated(callMemberStatus: NexmoCallMemberStatus, callMember: NexmoMember) {
-            if (callMemberStatus == NexmoCallMemberStatus.COMPLETED || callMemberStatus == NexmoCallMemberStatus.CANCELLED) {
-                onGoingCall = null
-                notifyFlutter(SdkState.LOGGED_IN)
-            }
-        }
-
-        override fun onMuteChanged(mediaActionState: NexmoMediaActionState, callMember: NexmoMember) {}
-        override fun onEarmuffChanged(mediaActionState: NexmoMediaActionState, callMember: NexmoMember) {}
-        override fun onDTMF(dtmf: String, callMember: NexmoMember) {}
-        override fun onLegTransfer(event: NexmoLegTransferEvent?, member: NexmoMember?) {}
-    }
+    private lateinit var client: VoiceClient
+    private var onGoingCall: VoiceCall? = null
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -38,15 +24,15 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun initClient() {
-        client = NexmoClient.Builder().build(this)
+        client = VoiceClient(this)
+        client.setConfig(ClientConfig(ClientConfigRegion.US))
 
-        client.setConnectionListener { connectionStatus, _ ->
-            when (connectionStatus) {
-                ConnectionStatus.CONNECTED -> notifyFlutter(SdkState.LOGGED_IN)
-                ConnectionStatus.DISCONNECTED -> notifyFlutter(SdkState.LOGGED_OUT)
-                ConnectionStatus.CONNECTING -> notifyFlutter(SdkState.WAIT)
-                ConnectionStatus.UNKNOWN -> notifyFlutter(SdkState.ERROR)
-            }
+        client.setSessionErrorListener {
+            notifyFlutter(SdkState.ERROR)
+        }
+
+        client.setReconnectingListener {
+            notifyFlutter(SdkState.WAIT)
         }
     }
 
@@ -77,40 +63,43 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun loginUser(token: String) {
-        client.login(token)
+        client.createSession(token) { err, sessionId ->
+            when(err) {
+                null -> notifyFlutter(SdkState.LOGGED_IN)
+                else -> notifyFlutter(SdkState.ERROR) // handle error
+
+            }
+
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun makeCall() {
         notifyFlutter(SdkState.WAIT)
 
-        client.serverCall("PHONE_NUMBER", null, object : NexmoRequestListener<NexmoCall> {
-            override fun onSuccess(call: NexmoCall?) {
-                onGoingCall = call
-                onGoingCall?.addCallEventListener(callEventListener)
-                notifyFlutter(SdkState.ON_CALL)
+        client.serverCall(null) { err, voiceCall ->
+            when(err) {
+                null -> {
+                    onGoingCall = voiceCall
+                    notifyFlutter(SdkState.ON_CALL)
+                }
+                else -> notifyFlutter(SdkState.ERROR)
             }
-
-            override fun onError(apiError: NexmoApiError) {
-                notifyFlutter(SdkState.ERROR)
-            }
-        })
+        }
     }
 
     private fun endCall() {
         notifyFlutter(SdkState.WAIT)
 
-        onGoingCall?.hangup(object : NexmoRequestListener<NexmoCall> {
-            override fun onSuccess(call: NexmoCall?) {
-                onGoingCall?.removeCallEventListener(callEventListener)
-                onGoingCall = null
-                notifyFlutter(SdkState.LOGGED_IN)
+        onGoingCall?.hangup {
+            when (it) {
+                null -> {
+                    onGoingCall=null
+                    notifyFlutter(SdkState.LOGGED_IN)
+                }
+                else -> notifyFlutter(SdkState.ERROR)
             }
-
-            override fun onError(apiError: NexmoApiError) {
-                notifyFlutter(SdkState.ERROR)
-            }
-        })
+        }
     }
 
     private fun notifyFlutter(state: SdkState) {

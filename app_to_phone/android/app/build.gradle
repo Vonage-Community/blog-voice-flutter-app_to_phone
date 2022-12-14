@@ -65,5 +65,5 @@ flutter {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation "com.nexmo.android:client-sdk:4.1.0"
+    implementation "com.vonage:client-sdk-voice:0.1.3"
 }
