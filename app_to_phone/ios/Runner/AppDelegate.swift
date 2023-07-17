@@ -14,7 +14,7 @@ import VonageClientSDKVoice
     
     var vonageChannel: FlutterMethodChannel?
     var client: VGVoiceClient? = nil
-    var onGoingCall: VGVoiceCall?
+    var callID: String?
     
     override func application(
         _ application: UIApplication,
@@ -30,7 +30,7 @@ import VonageClientSDKVoice
     func initClient() {
         client = VGVoiceClient()
         let config = VGClientConfig(region: .US)
-        client?.setConfig(config)
+        client.setConfig(config)
     }
     
     func addFlutterChannelListener() {
@@ -72,25 +72,31 @@ import VonageClientSDKVoice
     }
     
     func makeCall() {
-        client?.serverCall { error, voiceCall in
-            if (error != nil) {
-                self.notifyFlutter(state: .error)
-            } else {
-                self.onGoingCall = voiceCall
-                self.notifyFlutter(state: .onCall)
-            }
-        }
+        client.serverCall(["to": "PHONE_NUMBER"]) { error, callId in
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        if error == nil {
+                            self.callID = callId
+                            self.notifyFlutter(state: .onCall)
+                        } else {
+                            self.notifyFlutter(state: .error)
+                        }
+                    }
+                }
     }
     
     func endCall() {
-        onGoingCall?.hangup { error in
-            if (error != nil) {
-                self.notifyFlutter(state: .error)
-            } else {
-                self.onGoingCall = nil
-                self.notifyFlutter(state: .loggedIn)
-            }
-        }
+        client.hangup(callID) { error in
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        if (error != nil) {
+                            self.notifyFlutter(state: .error)
+                        } else {
+                            self.callID = nil
+                            self.notifyFlutter(state: .loggedIn)
+                        }
+                    }
+                }
     }
     
     func notifyFlutter(state: SdkState) {

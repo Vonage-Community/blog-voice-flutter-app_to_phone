@@ -4,9 +4,9 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.NonNull
+import com.vonage.android_core.VGClientConfig
 import com.vonage.clientcore.core.api.ClientConfigRegion
-import com.vonage.voice.api.ClientConfig
-import com.vonage.voice.api.VoiceCall
+import com.vonage.voice.api.CallId
 import com.vonage.voice.api.VoiceClient
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -14,7 +14,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private lateinit var client: VoiceClient
-    private var onGoingCall: VoiceCall? = null
+    private var onGoingCallID: CallId? = null
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -25,7 +25,7 @@ class MainActivity : FlutterActivity() {
 
     private fun initClient() {
         client = VoiceClient(this)
-        client.setConfig(ClientConfig(ClientConfigRegion.US))
+        client.setConfig(VGClientConfig(ClientConfigRegion.US))
 
         client.setSessionErrorListener {
             notifyFlutter(SdkState.ERROR)
@@ -77,13 +77,15 @@ class MainActivity : FlutterActivity() {
     private fun makeCall() {
         notifyFlutter(SdkState.WAIT)
 
-        client.serverCall(null) { err, voiceCall ->
-            when(err) {
-                null -> {
-                    onGoingCall = voiceCall
+        client.serverCall(mapOf("to" to "PHONE_NUMBER")) {
+                err, outboundCall ->
+            when {
+                err != null -> {
+                    notifyFlutter(SdkState.ERROR)
+                } else -> {
+                    onGoingCallID = outboundCall
                     notifyFlutter(SdkState.ON_CALL)
                 }
-                else -> notifyFlutter(SdkState.ERROR)
             }
         }
     }
@@ -91,13 +93,17 @@ class MainActivity : FlutterActivity() {
     private fun endCall() {
         notifyFlutter(SdkState.WAIT)
 
-        onGoingCall?.hangup {
-            when (it) {
-                null -> {
-                    onGoingCall=null
-                    notifyFlutter(SdkState.LOGGED_IN)
+        onGoingCallID?.let {
+            client.hangup(it) {
+                    err ->
+                when {
+                    err != null -> {
+                        notifyFlutter(SdkState.ERROR)
+                    } else -> {
+                        notifyFlutter(SdkState.LOGGED_IN)
+                        onGoingCallID = null
+                    }
                 }
-                else -> notifyFlutter(SdkState.ERROR)
             }
         }
     }

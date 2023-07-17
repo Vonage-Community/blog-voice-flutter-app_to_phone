@@ -33,7 +33,7 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   
-  pod 'VonageClientSDKVoice', '~> 0.1.3'
+  pod 'VonageClientSDKVoice', '~> 1.0.3'
 end
 
 post_install do |installer|
