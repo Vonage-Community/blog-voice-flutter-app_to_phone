@@ -1,20 +1,33 @@
 PODS:
-  - NexmoClient (4.3.0):
-    - VonageWebRTC (= 84.0.22)
-  - VonageWebRTC (84.0.22)
+  - Flutter (1.0.0)
+  - permission_handler_apple (9.0.4):
+    - Flutter
+  - VonageClientSDKVoice (1.0.3):
+    - VonageWebRTC (~> 99.2.39)
+  - VonageWebRTC (99.2.39)
 
 DEPENDENCIES:
-  - NexmoClient
+  - Flutter (from `Flutter`)
+  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
+  - VonageClientSDKVoice (~> 1.0.3)
 
 SPEC REPOS:
   trunk:
-    - NexmoClient
+    - VonageClientSDKVoice
     - VonageWebRTC
 
-SPEC CHECKSUMS:
-  NexmoClient: 681eac397c8e264b4cb7650cc926067c917ad40a
-  VonageWebRTC: 035f3a68ed821344b2fba6c7baa086f350e0a277
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  permission_handler_apple:
+    :path: ".symlinks/plugins/permission_handler_apple/ios"
 
-PODFILE CHECKSUM: b6f356bc15a8d5c2f06d61d169a508caef4a23c8
+SPEC CHECKSUMS:
+  Flutter: f04841e97a9d0b0a8025694d0796dd46242b2854
+  permission_handler_apple: 44366e37eaf29454a1e7b1b7d736c2cceaeb17ce
+  VonageClientSDKVoice: 1676915b932e8884c9264251fc6b49080733c7e7
+  VonageWebRTC: 4b57187170ef4ea435006e932600646a0521d6b0
+
+PODFILE CHECKSUM: 2988aec4b0bffb83d573bc4f4566af6d40fca083
 
 COCOAPODS: 1.11.3

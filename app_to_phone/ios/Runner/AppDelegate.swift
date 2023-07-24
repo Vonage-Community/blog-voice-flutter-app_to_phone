@@ -1,6 +1,6 @@
 import UIKit
 import Flutter
-import NexmoClient
+import VonageClientSDKVoice
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
@@ -13,8 +13,8 @@ import NexmoClient
     }
     
     var vonageChannel: FlutterMethodChannel?
-    let client = NXMClient.shared
-    var onGoingCall: NXMCall?
+    var client: VGVoiceClient? = nil
+    var callID: String?
     
     override func application(
         _ application: UIApplication,
@@ -28,7 +28,9 @@ import NexmoClient
     }
     
     func initClient() {
-        client.setDelegate(self)
+        client = VGVoiceClient()
+        let config = VGClientConfig(region: .US)
+        client.setConfig(config)
     }
     
     func addFlutterChannelListener() {
@@ -60,67 +62,44 @@ import NexmoClient
     }
     
     func loginUser(token: String) {
-        self.client.login(withAuthToken: token)
-    }
-    
-    func makeCall() {
-        client.serverCall(withCallee: "PHONE_NUMBER", customData: nil) { [weak self] (error, call) in
-            guard let self = self else { return }
-            
-            if error != nil {
+        client?.createSession(token, sessionId: nil) { error, sessionId in
+            if (error != nil) {
                 self.notifyFlutter(state: .error)
-                return
+            } else {
+                self.notifyFlutter(state: .loggedIn)
             }
-            
-            self.onGoingCall = call
-            self.onGoingCall?.setDelegate(self)
-            self.notifyFlutter(state: .onCall)
         }
     }
     
+    func makeCall() {
+        client.serverCall(["to": "PHONE_NUMBER"]) { error, callId in
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        if error == nil {
+                            self.callID = callId
+                            self.notifyFlutter(state: .onCall)
+                        } else {
+                            self.notifyFlutter(state: .error)
+                        }
+                    }
+                }
+    }
+    
     func endCall() {
-        onGoingCall?.hangup()
-        onGoingCall = nil
-        notifyFlutter(state: .loggedIn)
+        client.hangup(callID) { error in
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        if (error != nil) {
+                            self.notifyFlutter(state: .error)
+                        } else {
+                            self.callID = nil
+                            self.notifyFlutter(state: .loggedIn)
+                        }
+                    }
+                }
     }
     
     func notifyFlutter(state: SdkState) {
         vonageChannel?.invokeMethod("updateState", arguments: state.rawValue)
-    }
-}
-
-extension AppDelegate: NXMClientDelegate {
-    func client(_ client: NXMClient, didChange status: NXMConnectionStatus, reason: NXMConnectionStatusReason) {
-        switch status {
-        case .connected:
-            notifyFlutter(state: .loggedIn)
-        case .disconnected:
-            notifyFlutter(state: .loggedOut)
-        case .connecting:
-            notifyFlutter(state: .wait)
-        @unknown default:
-            notifyFlutter(state: .error)
-        }
-    }
-    
-    func client(_ client: NXMClient, didReceiveError error: Error) {
-        notifyFlutter(state: .error)
-    }
-}
-
-extension AppDelegate: NXMCallDelegate {
-    func call(_ call: NXMCall, didUpdate callMember: NXMMember, with status: NXMCallMemberStatus) {
-        if (status == .completed || status == .cancelled) {
-            onGoingCall = nil
-            notifyFlutter(state: .loggedIn)
-        }
-    }
-    
-    func call(_ call: NXMCall, didUpdate callMember: NXMMember, isMuted muted: Bool) {
-        
-    }
-    
-    func call(_ call: NXMCall, didReceive error: Error) {
-        notifyFlutter(state: .error)
     }
 }
