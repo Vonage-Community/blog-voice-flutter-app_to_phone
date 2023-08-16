@@ -13,7 +13,7 @@ import VonageClientSDKVoice
     }
     
     var vonageChannel: FlutterMethodChannel?
-    var client: VGVoiceClient? = nil
+    var client: VGVoiceClient = VGVoiceClient()
     var callID: String?
     
     override func application(
@@ -23,12 +23,15 @@ import VonageClientSDKVoice
         initClient()
         addFlutterChannelListener()
         
-        GeneratedPluginRegistrant.register(with: self)
+        GeneratedPluginRegistrant.register(withRegistry: self)
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
     
     func initClient() {
-        client = VGVoiceClient()
+        /** By default iOS SDK uses CallKit to allow incoming calls even when the application is in the background.
+             We disable this for this example as we are only making calls from the app to a phone, not receiving them.
+         */
+        VGVoiceClient.isUsingCallKit = false
         let config = VGClientConfig(region: .US)
         client.setConfig(config)
     }
@@ -62,7 +65,7 @@ import VonageClientSDKVoice
     }
     
     func loginUser(token: String) {
-        client?.createSession(token, sessionId: nil) { error, sessionId in
+        client.createSession(token, sessionId: nil) { error, sessionId in
             if (error != nil) {
                 self.notifyFlutter(state: .error)
             } else {
@@ -86,7 +89,7 @@ import VonageClientSDKVoice
     }
     
     func endCall() {
-        client.hangup(callID) { error in
+        client.hangup(callID!) { error in
                     DispatchQueue.main.async { [weak self] in
                         guard let self else { return }
                         if (error != nil) {
